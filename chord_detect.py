@@ -9,12 +9,10 @@ Requires: numpy, scipy
 import sys
 
 import numpy as np
-from scipy.io import wavfile
-from scipy.signal import resample_poly
 
 # ---- Parameters (freeze these; the C++ port must match exactly) ----
 SR = 16000          # sample rate (Hz)
-N_FFT = 4096        # frame length (0.256 s, ~3.9 Hz bin spacing) 
+N_FFT = 4096        # frame length (0.256 s, ~3.9 Hz bin spacing)
 HOP = 2048          # hop between frames
 FMIN = 130.8        # C3; below this, bin spacing is too coarse
 FMAX = 800.0        # ignore high harmonics (lower FMAX helped on synthetic data)
@@ -81,31 +79,56 @@ def midi_to_hz(m):
     return 440.0 * 2 ** ((m - 69) / 12)
 
 
-def make_chord(root_pc, quality, octave_base=48, inversion=0):
+def chord_notes(root_pc, quality, octave_base=48, inversion=0):
+    """MIDI note numbers of a chord, after applying inversions."""
     intervals = (0, 4, 7) if quality == "" else (0, 3, 7)
     notes = [octave_base + root_pc + i for i in intervals]
     for _ in range(inversion):
         notes.append(notes.pop(0) + 12)
+    return notes
+
+
+def midi_name(m):
+    return f"{NOTE_NAMES[m % 12]}{m // 12 - 1}"
+
+
+def make_chord(root_pc, quality, octave_base=48, inversion=0):
+    notes = chord_notes(root_pc, quality, octave_base, inversion)
     y = sum(piano_like(midi_to_hz(n), N_FFT / SR) for n in notes)
     return y / np.max(np.abs(y)) * 0.5
 
 
-def self_test(noise_std=0.02, seed=3):
+def self_test(noise_std=0.02, seed=0):
     rng = np.random.default_rng(seed)
-    correct = total = 0
+    failures = []
+    total = 0
     for root in range(12):
         for q in ("", "m"):
             for inv in (0, 1, 2):
+                expected = NOTE_NAMES[root] + q
                 y = make_chord(root, q, inversion=inv)
                 y = y + rng.normal(0, noise_std, y.shape)
-                pred, _ = detect(y.astype(np.float32))
+                pred, score = detect(y.astype(np.float32))
                 total += 1
-                correct += pred == NOTE_NAMES[root] + q
+                if pred != expected:
+                    notes = " ".join(
+                        midi_name(n) for n in chord_notes(root, q, inversion=inv)
+                    )
+                    failures.append((expected, inv, notes, pred, score))
+
+    correct = total - len(failures)
     print(f"synthetic accuracy: {correct}/{total} = {correct / total:.1%}")
+    if failures:
+        print(f"\n{'expected':9s}{'inv':5s}{'notes played':16s}{'predicted':11s}score")
+        for exp, inv, notes, pred, score in failures:
+            print(f"{exp:9s}{inv:<5d}{notes:16s}{str(pred):11s}{score:.2f}")
+    return failures
 
 
 # ---- WAV mode ----
 def run_file(path):
+    from scipy.io import wavfile
+    from scipy.signal import resample_poly
     sr, x = wavfile.read(path)
     if x.ndim > 1:
         x = x.mean(axis=1)
