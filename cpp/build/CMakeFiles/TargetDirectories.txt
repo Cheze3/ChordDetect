@@ -1,4 +1,0 @@
-/Users/binh/Desktop/wspace/ChordDetect/cpp/build/CMakeFiles/detector.dir
-/Users/binh/Desktop/wspace/ChordDetect/cpp/build/CMakeFiles/test_detector.dir
-/Users/binh/Desktop/wspace/ChordDetect/cpp/build/CMakeFiles/edit_cache.dir
-/Users/binh/Desktop/wspace/ChordDetect/cpp/build/CMakeFiles/rebuild_cache.dir
