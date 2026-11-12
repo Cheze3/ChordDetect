@@ -1,0 +1,238 @@
+0 single 1 48 -
+1 single 1 49 -
+2 single 1 50 -
+3 single 1 51 -
+4 single 1 52 -
+5 single 1 53 -
+6 single 1 54 -
+7 single 1 55 -
+8 single 1 56 -
+9 single 1 57 -
+10 single 1 58 -
+11 single 1 59 -
+12 single 1 60 -
+13 single 1 61 -
+14 single 1 62 -
+15 single 1 63 -
+16 single 1 64 -
+17 single 1 65 -
+18 single 1 66 -
+19 single 1 67 -
+20 single 1 68 -
+21 single 1 69 -
+22 single 1 70 -
+23 single 1 71 -
+24 single 1 72 -
+25 single 1 73 -
+26 single 1 74 -
+27 single 1 75 -
+28 single 1 76 -
+29 single 1 77 -
+30 single 1 78 -
+31 single 1 79 -
+32 dyad 2 48 51 -
+33 dyad 2 48 52 -
+34 dyad 2 48 53 -
+35 dyad 2 48 55 -
+36 dyad 2 51 54 -
+37 dyad 2 51 55 -
+38 dyad 2 51 56 -
+39 dyad 2 51 58 -
+40 dyad 2 54 57 -
+41 dyad 2 54 58 -
+42 dyad 2 54 59 -
+43 dyad 2 54 61 -
+44 dyad 2 57 60 -
+45 dyad 2 57 61 -
+46 dyad 2 57 62 -
+47 dyad 2 57 64 -
+48 dyad 2 60 63 -
+49 dyad 2 60 64 -
+50 dyad 2 60 65 -
+51 dyad 2 60 67 -
+52 dyad 2 63 66 -
+53 dyad 2 63 67 -
+54 dyad 2 63 68 -
+55 dyad 2 63 70 -
+56 dyad 2 66 69 -
+57 dyad 2 66 70 -
+58 dyad 2 66 71 -
+59 dyad 2 66 73 -
+60 dyad 2 69 72 -
+61 dyad 2 69 73 -
+62 dyad 2 69 74 -
+63 dyad 2 69 76 -
+64 triad 3 48 52 55 C
+65 triad_noisy 3 48 52 55 C
+66 triad 3 52 55 60 C/E
+67 triad_noisy 3 52 55 60 C/E
+68 triad 3 55 60 64 C/G
+69 triad_noisy 3 55 60 64 C/G
+70 triad 3 48 51 55 Cm
+71 triad_noisy 3 48 51 55 Cm
+72 triad 3 51 55 60 Cm/D#
+73 triad_noisy 3 51 55 60 Cm/D#
+74 triad 3 55 60 63 Cm/G
+75 triad_noisy 3 55 60 63 Cm/G
+76 triad 3 49 53 56 C#
+77 triad_noisy 3 49 53 56 C#
+78 triad 3 53 56 61 C#/F
+79 triad_noisy 3 53 56 61 C#/F
+80 triad 3 56 61 65 C#/G#
+81 triad_noisy 3 56 61 65 C#/G#
+82 triad 3 49 52 56 C#m
+83 triad_noisy 3 49 52 56 C#m
+84 triad 3 52 56 61 C#m/E
+85 triad_noisy 3 52 56 61 C#m/E
+86 triad 3 56 61 64 C#m/G#
+87 triad_noisy 3 56 61 64 C#m/G#
+88 triad 3 50 54 57 D
+89 triad_noisy 3 50 54 57 D
+90 triad 3 54 57 62 D/F#
+91 triad_noisy 3 54 57 62 D/F#
+92 triad 3 57 62 66 D/A
+93 triad_noisy 3 57 62 66 D/A
+94 triad 3 50 53 57 Dm
+95 triad_noisy 3 50 53 57 Dm
+96 triad 3 53 57 62 Dm/F
+97 triad_noisy 3 53 57 62 Dm/F
+98 triad 3 57 62 65 Dm/A
+99 triad_noisy 3 57 62 65 Dm/A
+100 triad 3 51 55 58 D#
+101 triad_noisy 3 51 55 58 D#
+102 triad 3 55 58 63 D#/G
+103 triad_noisy 3 55 58 63 D#/G
+104 triad 3 58 63 67 D#/A#
+105 triad_noisy 3 58 63 67 D#/A#
+106 triad 3 51 54 58 D#m
+107 triad_noisy 3 51 54 58 D#m
+108 triad 3 54 58 63 D#m/F#
+109 triad_noisy 3 54 58 63 D#m/F#
+110 triad 3 58 63 66 D#m/A#
+111 triad_noisy 3 58 63 66 D#m/A#
+112 triad 3 52 56 59 E
+113 triad_noisy 3 52 56 59 E
+114 triad 3 56 59 64 E/G#
+115 triad_noisy 3 56 59 64 E/G#
+116 triad 3 59 64 68 E/B
+117 triad_noisy 3 59 64 68 E/B
+118 triad 3 52 55 59 Em
+119 triad_noisy 3 52 55 59 Em
+120 triad 3 55 59 64 Em/G
+121 triad_noisy 3 55 59 64 Em/G
+122 triad 3 59 64 67 Em/B
+123 triad_noisy 3 59 64 67 Em/B
+124 triad 3 53 57 60 F
+125 triad_noisy 3 53 57 60 F
+126 triad 3 57 60 65 F/A
+127 triad_noisy 3 57 60 65 F/A
+128 triad 3 60 65 69 F/C
+129 triad_noisy 3 60 65 69 F/C
+130 triad 3 53 56 60 Fm
+131 triad_noisy 3 53 56 60 Fm
+132 triad 3 56 60 65 Fm/G#
+133 triad_noisy 3 56 60 65 Fm/G#
+134 triad 3 60 65 68 Fm/C
+135 triad_noisy 3 60 65 68 Fm/C
+136 triad 3 54 58 61 F#
+137 triad_noisy 3 54 58 61 F#
+138 triad 3 58 61 66 F#/A#
+139 triad_noisy 3 58 61 66 F#/A#
+140 triad 3 61 66 70 F#/C#
+141 triad_noisy 3 61 66 70 F#/C#
+142 triad 3 54 57 61 F#m
+143 triad_noisy 3 54 57 61 F#m
+144 triad 3 57 61 66 F#m/A
+145 triad_noisy 3 57 61 66 F#m/A
+146 triad 3 61 66 69 F#m/C#
+147 triad_noisy 3 61 66 69 F#m/C#
+148 triad 3 55 59 62 G
+149 triad_noisy 3 55 59 62 G
+150 triad 3 59 62 67 G/B
+151 triad_noisy 3 59 62 67 G/B
+152 triad 3 62 67 71 G/D
+153 triad_noisy 3 62 67 71 G/D
+154 triad 3 55 58 62 Gm
+155 triad_noisy 3 55 58 62 Gm
+156 triad 3 58 62 67 Gm/A#
+157 triad_noisy 3 58 62 67 Gm/A#
+158 triad 3 62 67 70 Gm/D
+159 triad_noisy 3 62 67 70 Gm/D
+160 triad 3 56 60 63 G#
+161 triad_noisy 3 56 60 63 G#
+162 triad 3 60 63 68 G#/C
+163 triad_noisy 3 60 63 68 G#/C
+164 triad 3 63 68 72 G#/D#
+165 triad_noisy 3 63 68 72 G#/D#
+166 triad 3 56 59 63 G#m
+167 triad_noisy 3 56 59 63 G#m
+168 triad 3 59 63 68 G#m/B
+169 triad_noisy 3 59 63 68 G#m/B
+170 triad 3 63 68 71 G#m/D#
+171 triad_noisy 3 63 68 71 G#m/D#
+172 triad 3 57 61 64 A
+173 triad_noisy 3 57 61 64 A
+174 triad 3 61 64 69 A/C#
+175 triad_noisy 3 61 64 69 A/C#
+176 triad 3 64 69 73 A/E
+177 triad_noisy 3 64 69 73 A/E
+178 triad 3 57 60 64 Am
+179 triad_noisy 3 57 60 64 Am
+180 triad 3 60 64 69 Am/C
+181 triad_noisy 3 60 64 69 Am/C
+182 triad 3 64 69 72 Am/E
+183 triad_noisy 3 64 69 72 Am/E
+184 triad 3 58 62 65 A#
+185 triad_noisy 3 58 62 65 A#
+186 triad 3 62 65 70 A#/D
+187 triad_noisy 3 62 65 70 A#/D
+188 triad 3 65 70 74 A#/F
+189 triad_noisy 3 65 70 74 A#/F
+190 triad 3 58 61 65 A#m
+191 triad_noisy 3 58 61 65 A#m
+192 triad 3 61 65 70 A#m/C#
+193 triad_noisy 3 61 65 70 A#m/C#
+194 triad 3 65 70 73 A#m/F
+195 triad_noisy 3 65 70 73 A#m/F
+196 triad 3 59 63 66 B
+197 triad_noisy 3 59 63 66 B
+198 triad 3 63 66 71 B/D#
+199 triad_noisy 3 63 66 71 B/D#
+200 triad 3 66 71 75 B/F#
+201 triad_noisy 3 66 71 75 B/F#
+202 triad 3 59 62 66 Bm
+203 triad_noisy 3 59 62 66 Bm
+204 triad 3 62 66 71 Bm/D
+205 triad_noisy 3 62 66 71 Bm/D
+206 triad 3 66 71 74 Bm/F#
+207 triad_noisy 3 66 71 74 Bm/F#
+208 seventh 4 48 52 55 58 C7
+209 octave_doubled 4 48 52 55 60 C
+210 seventh 4 49 53 56 59 C#7
+211 octave_doubled 4 49 53 56 61 C#
+212 seventh 4 50 54 57 60 D7
+213 octave_doubled 4 50 54 57 62 D
+214 seventh 4 51 55 58 61 D#7
+215 octave_doubled 4 51 55 58 63 D#
+216 seventh 4 52 56 59 62 E7
+217 octave_doubled 4 52 56 59 64 E
+218 seventh 4 53 57 60 63 F7
+219 octave_doubled 4 53 57 60 65 F
+220 seventh 4 54 58 61 64 F#7
+221 octave_doubled 4 54 58 61 66 F#
+222 seventh 4 55 59 62 65 G7
+223 octave_doubled 4 55 59 62 67 G
+224 seventh 4 56 60 63 66 G#7
+225 octave_doubled 4 56 60 63 68 G#
+226 seventh 4 57 61 64 67 A7
+227 octave_doubled 4 57 61 64 69 A
+228 seventh 4 58 62 65 68 A#7
+229 octave_doubled 4 58 62 65 70 A#
+230 seventh 4 59 63 66 69 B7
+231 octave_doubled 4 59 63 66 71 B
+232 level_0.005 0 -
+233 level_0.0095 0 -
+234 level_0.0105 3 48 52 55 C
+235 level_0.02 3 48 52 55 C
+236 silence 0 -
+237 quiet_noise 0 -

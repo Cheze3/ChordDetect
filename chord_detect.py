@@ -5,12 +5,17 @@ known chord, the chord name is shown; otherwise the notes are shown.
 The older chroma/template method (detect) is kept as a baseline.
 
 Usage:
-    python chord_detect.py            # synthetic self-tests
-    python chord_detect.py file.wav   # print note/chord timeline for a recording
+    python chord_detect.py                  # synthetic self-tests
+    python chord_detect.py file.wav         # print note/chord timeline for a recording
+    python chord_detect.py --live           # listen to the microphone
+    python chord_detect.py --list-devices   # show audio input devices
 
-Requires: numpy, scipy
+Requires: numpy, scipy; sounddevice for --live
 """
+import argparse
 import sys
+from collections import Counter, deque
+from math import gcd
 
 import numpy as np
 
@@ -257,6 +262,88 @@ def note_test(noise_std=0.02, seed=0):
     return failures
 
 
+# ---- Live microphone mode ----
+class LiveAnalyzer:
+    """Feed it audio blocks; once enough audio has arrived it returns a result per block.
+
+    Keeps a rolling window of the last N_FFT samples (at the 16 kHz analysis rate),
+    runs note detection, and smooths the displayed label by majority vote over the
+    last `smooth` frames so it does not flicker.
+    """
+
+    def __init__(self, native_sr=SR, smooth=5, min_votes=3):
+        self.sr = native_sr
+        self.need = round(N_FFT * native_sr / SR)   # samples at native rate per frame
+        self.buf = np.zeros(0, dtype=np.float32)
+        self.hist = deque(maxlen=smooth)
+        self.min_votes = min_votes
+        self.shown = ("-", "")
+
+    def push(self, block):
+        self.buf = np.concatenate([self.buf, block.astype(np.float32)])[-self.need:]
+        if len(self.buf) < self.need:
+            return None
+        frame = self.buf
+        if self.sr != SR:
+            from scipy.signal import resample_poly
+            g = gcd(self.sr, SR)
+            frame = resample_poly(frame, SR // g, self.sr // g)
+            frame = np.pad(frame, (0, max(0, N_FFT - len(frame))))[:N_FFT]
+        frame = frame.astype(np.float32)
+        rms = float(np.sqrt(np.mean(frame ** 2)))
+        text, label = describe(detect_notes(frame))
+        self.hist.append((label, text))
+        top, votes = Counter(lab for lab, _ in self.hist).most_common(1)[0]
+        if votes >= self.min_votes:
+            latest_text = next(t for lab, t in reversed(self.hist) if lab == top)
+            self.shown = (top, latest_text)
+        return self.shown[0], self.shown[1], rms
+
+
+def run_live(device=None):
+    try:
+        import sounddevice as sd
+    except (ImportError, OSError) as e:
+        sys.exit(f"sounddevice is not available ({e}). Install it with: pip install sounddevice")
+    import queue
+
+    q = queue.Queue()
+
+    def callback(indata, frames, time_info, status):
+        if status:
+            print(status, file=sys.stderr)
+        q.put(indata[:, 0].copy())
+
+    def open_stream(rate):
+        return sd.InputStream(
+            samplerate=rate, channels=1, dtype="float32", device=device,
+            blocksize=round(HOP * rate / SR), callback=callback,
+        )
+
+    try:
+        stream, rate = open_stream(SR), SR
+    except sd.PortAudioError:
+        rate = int(sd.query_devices(device, "input")["default_samplerate"])
+        stream = open_stream(rate)
+    analyzer = LiveAnalyzer(rate)
+    print(f"Listening at {rate} Hz (analysis at {SR} Hz). Ctrl+C to stop.")
+    try:
+        with stream:
+            while True:
+                result = analyzer.push(q.get())
+                if q.qsize() > 4:            # fell behind: drop old audio
+                    with q.mutex:
+                        q.queue.clear()
+                if result is None:
+                    continue
+                label, text, rms = result
+                shown = "-" if label == "-" else (
+                    f"{label}   [{text}]" if label != text else f"notes: {text}")
+                print(f"\r{shown:<40s} level {rms:.3f}", end="", flush=True)
+    except KeyboardInterrupt:
+        print()
+
+
 # ---- WAV mode ----
 def run_file(path):
     from scipy.io import wavfile
@@ -276,9 +363,30 @@ def run_file(path):
         print(f"{start / SR:6.2f}s  {label:12s}  {text if label != text else ''}")
 
 
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        run_file(sys.argv[1])
+def main():
+    global SILENCE_RMS
+    ap = argparse.ArgumentParser(description="Note and chord detector")
+    ap.add_argument("wav", nargs="?", help="WAV file to analyze")
+    ap.add_argument("--live", action="store_true", help="listen to the microphone")
+    ap.add_argument("--device", help="input device index or name (see --list-devices)")
+    ap.add_argument("--list-devices", action="store_true", help="list audio devices and exit")
+    ap.add_argument("--silence", type=float, help=f"RMS below which input counts as silence (default {SILENCE_RMS})")
+    args = ap.parse_args()
+
+    if args.silence is not None:
+        SILENCE_RMS = args.silence
+    if args.list_devices:
+        import sounddevice as sd
+        print(sd.query_devices())
+    elif args.live:
+        dev = int(args.device) if args.device and args.device.isdigit() else args.device
+        run_live(dev)
+    elif args.wav:
+        run_file(args.wav)
     else:
         self_test()
         note_test()
+
+
+if __name__ == "__main__":
+    main()
