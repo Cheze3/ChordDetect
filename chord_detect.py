@@ -278,6 +278,7 @@ class LiveAnalyzer:
         self.hist = deque(maxlen=smooth)
         self.min_votes = min_votes
         self.shown = ("-", "")
+        self.shown_notes = []                       # MIDI notes behind the shown label
 
     def push(self, block):
         self.buf = np.concatenate([self.buf, block.astype(np.float32)])[-self.need:]
@@ -291,12 +292,15 @@ class LiveAnalyzer:
             frame = np.pad(frame, (0, max(0, N_FFT - len(frame))))[:N_FFT]
         frame = frame.astype(np.float32)
         rms = float(np.sqrt(np.mean(frame ** 2)))
-        text, label = describe(detect_notes(frame))
-        self.hist.append((label, text))
-        top, votes = Counter(lab for lab, _ in self.hist).most_common(1)[0]
+        notes = detect_notes(frame)
+        text, label = describe(notes)
+        self.hist.append((label, text, notes))
+        top, votes = Counter(lab for lab, _, _ in self.hist).most_common(1)[0]
         if votes >= self.min_votes:
-            latest_text = next(t for lab, t in reversed(self.hist) if lab == top)
+            latest_text, latest_notes = next(
+                (t, n) for lab, t, n in reversed(self.hist) if lab == top)
             self.shown = (top, latest_text)
+            self.shown_notes = latest_notes
         return self.shown[0], self.shown[1], rms
 
 
