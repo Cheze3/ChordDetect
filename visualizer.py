@@ -19,6 +19,7 @@ import math
 import sys
 from collections import deque
 
+import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 import chord_detect as cd
@@ -56,20 +57,23 @@ def fit_size(draw, s, max_w, max_size, min_size=10):
     return min_size
 
 
+_pattern_cache = {}
+
+
+def _pattern(size, density):
+    key = (size, density >= 0.5)
+    if key not in _pattern_cache:
+        w, h = size
+        ys, xs = np.mgrid[0:h, 0:w]
+        on = ((xs + ys) % 2 == 0) if density >= 0.5 else ((xs % 2 == 0) & (ys % 2 == 0))
+        arr = np.where(on, INK, PAPER).astype(np.uint8)
+        _pattern_cache[key] = Image.fromarray(arr).convert("1")
+    return _pattern_cache[key]
+
+
 def hatch(img, mask, density):
     """Fill the masked area with an ordered-dither gray (density 0.25 or 0.5)."""
-    w, h = img.size
-    pat = Image.new("1", (w, h), PAPER)
-    px = pat.load()
-    for y in range(h):
-        for x in range(w):
-            if density >= 0.5:
-                on = (x + y) % 2 == 0
-            else:
-                on = x % 2 == 0 and y % 2 == 0
-            if on:
-                px[x, y] = INK
-    # where mask is set (1) and pattern is ink (0) -> ink
+    pat = _pattern(img.size, density)
     ink_mask = ImageChops.logical_and(mask, ImageChops.invert(pat))
     img.paste(INK, mask=ink_mask)
 
@@ -173,20 +177,58 @@ def draw_keyboard(img, draw, x0, y0, width, height, active_notes, bass_note):
                   fill=INK, font=font(11), anchor="mt")
 
 
-def render(notes, label, notes_text, history, size=(400, 300), fifths=False):
+def key_centers(x0, width):
+    """x position of every key's center (black keys sit on the boundary between whites)."""
+    n_white = sum(1 for n in range(NOTE_LO, NOTE_HI + 1) if n % 12 in WHITE_PCS)
+    kw = width / n_white
+    xs, i = {}, 0
+    for n in range(NOTE_LO, NOTE_HI + 1):
+        if n % 12 in WHITE_PCS:
+            xs[n] = x0 + (i + 0.5) * kw
+            i += 1
+        else:
+            xs[n] = x0 + i * kw          # i = whites placed so far = boundary to the right of n-1
+    return xs
+
+
+def draw_spectrum(img, draw, x0, y0, width, height, levels, active_notes):
+    """Spectrum silhouette aligned to the keyboard below: one point per key."""
+    base = y0 + height
+    draw.line([(x0, base), (x0 + width, base)], fill=INK, width=1)
+    if levels is None:
+        return
+    xs = key_centers(x0, width)
+    notes = list(range(NOTE_LO, NOTE_HI + 1))
+    pts = [(xs[n], base - float(levels[n - NOTE_LO]) * (height - 2)) for n in notes]
+    poly = [(pts[0][0], base)] + pts + [(pts[-1][0], base)]
+    mask = Image.new("1", img.size, 0)
+    ImageDraw.Draw(mask).polygon(poly, fill=255)
+    hatch(img, mask, 0.25)
+    draw.line(pts, fill=INK, width=1)
+    for n in active_notes:
+        if NOTE_LO <= n <= NOTE_HI:
+            x, y = pts[n - NOTE_LO]
+            draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=INK)
+
+
+def render(notes, label, notes_text, history, size=(400, 300), fifths=False, levels=None):
     """Draw one state. notes: MIDI list; label: chord name or note text or '-'."""
     W, H = size
     img = Image.new("1", size, PAPER)
     draw = ImageDraw.Draw(img)
     landscape = W >= H
 
-    key_h = 44
-    margin = 8
+    key_h, spec_h, margin = 44, 36, 8
     kb_y = H - key_h - 18
-    avail_h = kb_y - margin
-    radius = int(min(avail_h / 2 - 26, (W * 0.5 if landscape else W) / 2 - 42))
-    cx = W / 2
-    cy = margin + avail_h / 2 if landscape else margin + radius + 28
+    spec_y = kb_y - spec_h - 2
+    if landscape:
+        avail_h = spec_y - 6 - margin
+        radius = int(min(avail_h / 2 - 26, (W - 2 * 88) / 2 - 32))
+        cx, cy = W / 2, margin + avail_h / 2
+    else:
+        avail_h = spec_y - 24 - margin
+        radius = int(min(W / 2 - 42, avail_h / 2 - 30))
+        cx, cy = W / 2, margin + avail_h / 2
 
     active_pcs = {n % 12 for n in notes}
     chord = is_chord(label, notes_text)
@@ -195,11 +237,12 @@ def render(notes, label, notes_text, history, size=(400, 300), fifths=False):
     draw_wheel(img, draw, cx, cy, radius, active_pcs, root, fifths, font(15))
     draw_center(draw, cx, cy, label if chord else (notes_text if notes_text else "-"),
                 notes_text, int(radius * 1.15))
+    draw_spectrum(img, draw, margin, spec_y, W - 2 * margin, spec_h, levels, notes)
     draw_keyboard(img, draw, margin, kb_y, W - 2 * margin, key_h, notes, min(notes) if notes else None)
 
     if not landscape:
         # no side columns in portrait: one line of detected notes above the keyboard
-        draw.text((W / 2, kb_y - 14), notes_text, fill=INK, font=font(16), anchor="mm")
+        draw.text((W / 2, spec_y - 8), notes_text, fill=INK, font=font(16), anchor="mm")
     if landscape:
         # left: detected notes
         draw_text(draw, (margin, margin), "NOTES", 12)
@@ -214,9 +257,21 @@ def render(notes, label, notes_text, history, size=(400, 300), fifths=False):
 
 
 # ---------- preview / demo / live ----------
+def synth_levels(notes, noise=0.003, seed=0):
+    """Per-key levels for a synthetic frame of the given notes (plus mic noise)."""
+    rng = np.random.default_rng(seed)
+    y = np.zeros(cd.N_FFT)
+    for n in notes:
+        y = y + cd.piano_like(cd.midi_to_hz(n), cd.N_FFT / cd.SR)[: cd.N_FFT]
+    if notes:
+        y = y / np.max(np.abs(y)) * 0.3
+    y = y + rng.normal(0, noise, cd.N_FFT)
+    return cd.key_levels(y.astype(np.float32))
+
+
 def sample_states():
     ch = cd.chord_notes
-    return [
+    rows = [
         (ch(0, ""), "C", "C4 E4 G4", ["Am", "F", "G"]),
         ([57, 60, 64], "Am", "A3 C4 E4", ["C", "F", "G"]),
         ([64, 67, 72], "C/E", "E4 G4 C5", ["Am", "F", "G"]),
@@ -224,10 +279,11 @@ def sample_states():
         ([60, 64], "C4 E4", "C4 E4", ["C", "F", "G"]),
         ([], "-", "", ["C", "F", "G"]),
     ]
+    return [(n, lab, txt, hist, synth_levels(n)) for n, lab, txt, hist in rows]
 
 
 def save_preview(path, size, fifths, scale):
-    imgs = [render(n, lab, txt, hist, size, fifths) for n, lab, txt, hist in sample_states()]
+    imgs = [render(n, lab, txt, hist, size, fifths, lv) for n, lab, txt, hist, lv in sample_states()]
     cols = 2
     rows = (len(imgs) + cols - 1) // cols
     gap = 10
@@ -249,7 +305,7 @@ def to_surface(pygame, img, scale):
 
 
 def run_window(source, size, fifths, scale):
-    """source: generator yielding (notes, label, text) per update (None = no update)."""
+    """source: generator yielding (notes, label, text, levels) per update (None = no update)."""
     import pygame
     pygame.init()
     screen = pygame.display.set_mode((size[0] * scale, size[1] * scale))
@@ -257,6 +313,7 @@ def run_window(source, size, fifths, scale):
     clock = pygame.time.Clock()
     history, last = deque(maxlen=8), "-"
     state = ([], "-", "")
+    shown_levels = np.zeros(NOTE_HI - NOTE_LO + 1)
     running = True
     while running:
         for ev in pygame.event.get():
@@ -265,14 +322,17 @@ def run_window(source, size, fifths, scale):
         upd = next(source, "end")
         if upd == "end":
             break
+        shown_levels *= 0.92                      # release: bars fall between updates
         if upd is not None:
-            state = upd
+            state = upd[:3]
+            shown_levels = np.maximum(shown_levels, upd[3])   # attack: rise at once
             label = state[1]
             if label != "-" and label != last:
                 history.append(label)
             last = label
         notes, label, text = state
-        screen.blit(to_surface(pygame, render(notes, label, text, history, size, fifths), scale), (0, 0))
+        img = render(notes, label, text, history, size, fifths, shown_levels)
+        screen.blit(to_surface(pygame, img, scale), (0, 0))
         pygame.display.flip()
         clock.tick(30)
     pygame.quit()
@@ -283,8 +343,9 @@ def demo_source():
     while True:
         for notes in seq:
             text, label = cd.describe(notes)
-            for _ in range(45):
-                yield notes, label, text
+            levels = synth_levels(notes)
+            for i in range(45):
+                yield notes, label, text, (levels if i % 4 == 0 else np.zeros_like(levels))
 
 
 def live_source(device):
@@ -313,7 +374,7 @@ def live_source(device):
                 yield None
                 continue
             res = analyzer.push(block)
-            yield None if res is None else (list(analyzer.shown_notes), res[0], res[1])
+            yield None if res is None else (list(analyzer.shown_notes), res[0], res[1], analyzer.levels)
 
 
 def main():

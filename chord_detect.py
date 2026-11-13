@@ -81,6 +81,8 @@ WEIGHT_POW = 0.5            # harmonic h is weighted h ** -WEIGHT_POW
 FUND_FRAC = 0.15            # a note's fundamental must reach this fraction of the spectrum max
 NOTE_THRESHOLD = 0.3        # stop when next note's salience < this fraction of the first
 MAX_NOTES = 6
+SPEC_FLOOR_DB = -60.0       # key_levels(): level shown as 0 (dB relative to full scale)
+SPEC_CEIL_DB = -6.0         # key_levels(): level shown as 1
 _DF = SR / N_FFT
 
 
@@ -138,6 +140,22 @@ def detect_notes(frame):
             a, b = _BANDS[(best_m, h)]
             spec[a:b] = np.maximum(spec[a:b] - p1 / h, 0)
     return sorted(found)
+
+
+def key_levels(frame):
+    """Spectrum level (0..1) at each key from NOTE_LO to NOTE_HI, for display.
+
+    Uses the same fundamental bands as detect_notes, converted to dB relative to a
+    full-scale sine and mapped between SPEC_FLOOR_DB and SPEC_CEIL_DB.
+    """
+    spec = np.abs(np.fft.rfft(frame * WINDOW))
+    ref = N_FFT / 4                      # peak magnitude of a full-scale sine with a Hann window
+    out = np.empty(NOTE_HI - NOTE_LO + 1)
+    for i, m in enumerate(range(NOTE_LO, NOTE_HI + 1)):
+        a, b = _BANDS[(m, 1)]
+        db = 20 * np.log10(max(float(spec[a:b].max()) / ref, 1e-9))
+        out[i] = np.clip((db - SPEC_FLOOR_DB) / (SPEC_CEIL_DB - SPEC_FLOOR_DB), 0.0, 1.0)
+    return out
 
 
 # Chord qualities as semitone intervals above the root, in priority order
@@ -279,6 +297,7 @@ class LiveAnalyzer:
         self.min_votes = min_votes
         self.shown = ("-", "")
         self.shown_notes = []                       # MIDI notes behind the shown label
+        self.levels = np.zeros(NOTE_HI - NOTE_LO + 1)   # latest per-key spectrum levels
 
     def push(self, block):
         self.buf = np.concatenate([self.buf, block.astype(np.float32)])[-self.need:]
@@ -292,6 +311,7 @@ class LiveAnalyzer:
             frame = np.pad(frame, (0, max(0, N_FFT - len(frame))))[:N_FFT]
         frame = frame.astype(np.float32)
         rms = float(np.sqrt(np.mean(frame ** 2)))
+        self.levels = key_levels(frame)
         notes = detect_notes(frame)
         text, label = describe(notes)
         self.hist.append((label, text, notes))
