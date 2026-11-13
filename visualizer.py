@@ -177,6 +177,25 @@ def draw_keyboard(img, draw, x0, y0, width, height, active_notes, bass_note):
                   fill=INK, font=font(11), anchor="mt")
 
 
+METER_FLOOR_DB = -60.0   # meter scale: RMS in dB relative to full scale
+
+
+def _meter_frac(rms):
+    db = 20 * np.log10(max(rms, 1e-9))
+    return float(np.clip((db - METER_FLOOR_DB) / -METER_FLOOR_DB, 0.0, 1.0))
+
+
+def draw_meter(draw, x0, y0, w, h, rms):
+    """Level bar with a tick at the silence threshold (cd.SILENCE_RMS)."""
+    draw.text((x0, y0 - 14), "LEVEL", fill=INK, font=font(11), anchor="lt")
+    draw.rectangle([x0, y0, x0 + w, y0 + h], fill=PAPER, outline=INK)
+    fill_x = x0 + 1 + _meter_frac(rms) * (w - 2)
+    draw.rectangle([x0 + 1, y0 + 1, fill_x, y0 + h - 1], fill=INK)
+    xt = x0 + _meter_frac(cd.SILENCE_RMS) * w
+    draw.line([(xt, y0 - 4), (xt, y0 + h + 4)], fill=INK, width=2)
+    draw.text((xt, y0 + h + 5), "min", fill=INK, font=font(10), anchor="mt")
+
+
 def key_centers(x0, width):
     """x position of every key's center (black keys sit on the boundary between whites)."""
     n_white = sum(1 for n in range(NOTE_LO, NOTE_HI + 1) if n % 12 in WHITE_PCS)
@@ -211,7 +230,7 @@ def draw_spectrum(img, draw, x0, y0, width, height, levels, active_notes):
             draw.ellipse([x - 3, y - 3, x + 3, y + 3], fill=INK)
 
 
-def render(notes, label, notes_text, history, size=(400, 300), fifths=False, levels=None):
+def render(notes, label, notes_text, history, size=(400, 300), fifths=False, levels=None, rms=None):
     """Draw one state. notes: MIDI list; label: chord name or note text or '-'."""
     W, H = size
     img = Image.new("1", size, PAPER)
@@ -240,6 +259,11 @@ def render(notes, label, notes_text, history, size=(400, 300), fifths=False, lev
     draw_spectrum(img, draw, margin, spec_y, W - 2 * margin, spec_h, levels, notes)
     draw_keyboard(img, draw, margin, kb_y, W - 2 * margin, key_h, notes, min(notes) if notes else None)
 
+    if rms is not None:
+        if landscape:
+            draw_meter(draw, margin, 170, 84, 10, rms)
+        else:
+            draw_meter(draw, margin, 24, 60, 10, rms)
     if not landscape:
         # no side columns in portrait: one line of detected notes above the keyboard
         draw.text((W / 2, spec_y - 8), notes_text, fill=INK, font=font(16), anchor="mm")
@@ -257,33 +281,38 @@ def render(notes, label, notes_text, history, size=(400, 300), fifths=False, lev
 
 
 # ---------- preview / demo / live ----------
-def synth_levels(notes, noise=0.003, seed=0):
-    """Per-key levels for a synthetic frame of the given notes (plus mic noise)."""
+def synth_levels(notes, noise=0.003, seed=0, amp=0.3):
+    """(per-key levels, frame RMS) for a synthetic frame of the given notes plus mic noise."""
     rng = np.random.default_rng(seed)
     y = np.zeros(cd.N_FFT)
     for n in notes:
         y = y + cd.piano_like(cd.midi_to_hz(n), cd.N_FFT / cd.SR)[: cd.N_FFT]
     if notes:
-        y = y / np.max(np.abs(y)) * 0.3
-    y = y + rng.normal(0, noise, cd.N_FFT)
-    return cd.key_levels(y.astype(np.float32))
+        y = y / np.max(np.abs(y)) * amp
+    y = (y + rng.normal(0, noise, cd.N_FFT)).astype(np.float32)
+    return cd.key_levels(y), float(np.sqrt(np.mean(y ** 2)))
 
 
 def sample_states():
     ch = cd.chord_notes
     rows = [
-        (ch(0, ""), "C", "C4 E4 G4", ["Am", "F", "G"]),
-        ([57, 60, 64], "Am", "A3 C4 E4", ["C", "F", "G"]),
-        ([64, 67, 72], "C/E", "E4 G4 C5", ["Am", "F", "G"]),
-        ([55, 59, 62, 65], "G7", "G3 B3 D4 F4", ["C", "Am", "F"]),
-        ([60, 64], "C4 E4", "C4 E4", ["C", "F", "G"]),
-        ([], "-", "", ["C", "F", "G"]),
+        (ch(0, ""), "C", "C4 E4 G4", ["Am", "F", "G"], ch(0, ""), 0.3),
+        ([57, 60, 64], "Am", "A3 C4 E4", ["C", "F", "G"], [57, 60, 64], 0.3),
+        ([64, 67, 72], "C/E", "E4 G4 C5", ["Am", "F", "G"], [64, 67, 72], 0.3),
+        ([55, 59, 62, 65], "G7", "G3 B3 D4 F4", ["C", "Am", "F"], [55, 59, 62, 65], 0.3),
+        ([60, 64], "C4 E4", "C4 E4", ["C", "F", "G"], [60, 64], 0.3),
+        # played too quietly to pass the silence threshold: shown as "listening"
+        ([], "-", "", ["C", "F", "G"], [60, 64, 67], 0.02),
     ]
-    return [(n, lab, txt, hist, synth_levels(n)) for n, lab, txt, hist in rows]
+    out = []
+    for notes, label, text, hist, played, amp in rows:
+        levels, rms = synth_levels(played, amp=amp)
+        out.append((notes, label, text, hist, levels, rms))
+    return out
 
 
 def save_preview(path, size, fifths, scale):
-    imgs = [render(n, lab, txt, hist, size, fifths, lv) for n, lab, txt, hist, lv in sample_states()]
+    imgs = [render(n, lab, txt, hist, size, fifths, lv, r) for n, lab, txt, hist, lv, r in sample_states()]
     cols = 2
     rows = (len(imgs) + cols - 1) // cols
     gap = 10
@@ -305,7 +334,7 @@ def to_surface(pygame, img, scale):
 
 
 def run_window(source, size, fifths, scale):
-    """source: generator yielding (notes, label, text, levels) per update (None = no update)."""
+    """source: generator yielding (notes, label, text, levels, rms) per update (None = no update)."""
     import pygame
     pygame.init()
     screen = pygame.display.set_mode((size[0] * scale, size[1] * scale))
@@ -314,6 +343,7 @@ def run_window(source, size, fifths, scale):
     history, last = deque(maxlen=8), "-"
     state = ([], "-", "")
     shown_levels = np.zeros(NOTE_HI - NOTE_LO + 1)
+    shown_rms = 0.0
     running = True
     while running:
         for ev in pygame.event.get():
@@ -323,15 +353,17 @@ def run_window(source, size, fifths, scale):
         if upd == "end":
             break
         shown_levels *= 0.92                      # release: bars fall between updates
+        shown_rms *= 0.92
         if upd is not None:
             state = upd[:3]
             shown_levels = np.maximum(shown_levels, upd[3])   # attack: rise at once
+            shown_rms = max(shown_rms, upd[4])
             label = state[1]
             if label != "-" and label != last:
                 history.append(label)
             last = label
         notes, label, text = state
-        img = render(notes, label, text, history, size, fifths, shown_levels)
+        img = render(notes, label, text, history, size, fifths, shown_levels, shown_rms)
         screen.blit(to_surface(pygame, img, scale), (0, 0))
         pygame.display.flip()
         clock.tick(30)
@@ -343,9 +375,12 @@ def demo_source():
     while True:
         for notes in seq:
             text, label = cd.describe(notes)
-            levels = synth_levels(notes)
+            levels, rms = synth_levels(notes)
             for i in range(45):
-                yield notes, label, text, (levels if i % 4 == 0 else np.zeros_like(levels))
+                if i % 4 == 0:
+                    yield notes, label, text, levels, rms
+                else:
+                    yield notes, label, text, np.zeros_like(levels), 0.0
 
 
 def live_source(device):
@@ -374,7 +409,7 @@ def live_source(device):
                 yield None
                 continue
             res = analyzer.push(block)
-            yield None if res is None else (list(analyzer.shown_notes), res[0], res[1], analyzer.levels)
+            yield None if res is None else (list(analyzer.shown_notes), res[0], res[1], analyzer.levels, res[2])
 
 
 def main():
